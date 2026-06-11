@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Cursos - Control de Progreso</title>
+    <!-- Tailwind CSS para estilos modernos, limpios y completamente responsivos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas para exportar el dashboard a imagen -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Importación de la fuente Inter para un acabado de alta calidad -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col justify-between p-4 md:p-8">
+
+    <!-- Contenedor Principal (Optimizado a max-w-7xl para 4 columnas) -->
+    <div id="dashboard-container" class="max-w-7xl w-full mx-auto my-auto space-y-8 pb-8 pt-4">
+        
+        <!-- Encabezado de la página con menú desplegable de Profesores y KPI de Meta -->
+        <div class="bg-white p-6 md:p-8 rounded-[24px] shadow-sm border border-slate-100 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">Panel de Control de Clases</h1>
+                    <p class="text-slate-500 text-sm mt-1">Monitoreo de asistencia, calendarios y niveles académicos en tiempo real.</p>
+                </div>
+                
+                <!-- Selector de Profesor y Botones de Acción -->
+                <div class="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-end flex-wrap">
+                    
+                    <!-- Botón Exportar / Enviar -->
+                    <button onclick="exportarYEnviar()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-3 px-5 rounded-xl flex items-center gap-2 transition-colors duration-200 shadow-sm border border-indigo-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        Descargar y Enviar Reporte
+                    </button>
+
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-400">Profesor Activo:</span>
+                        <div class="relative inline-block w-full sm:w-64">
+                            <select id="global-teacher-select" onchange="actualizarProfesorGlobal()" class="block w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold py-3 px-4 pr-10 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-sky-500 cursor-pointer text-sm transition-all duration-200">
+                                <option value="Alejandro García">Alejandro García</option>
+                                <option value="Christian Muller">Christian Muller</option>
+                            </select>
+                            <!-- Icono de flecha personalizado para el select -->
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget Dinámico de Progreso de Meta del Profesor -->
+            <div class="pt-6 border-t border-slate-100 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                <!-- Información numérica de la meta -->
+                <div class="text-center lg:text-left space-y-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Progreso de Alumnos</span>
+                    <div class="flex items-baseline justify-center lg:justify-start gap-2">
+                        <span id="total-alumnos-global" class="text-3xl font-black text-slate-800 transition-all duration-300">0</span>
+                        <span class="text-slate-400 font-semibold text-base">/ 90 Alumnos de Meta</span>
+                    </div>
+                    <span id="meta-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-50 text-blue-600 border border-blue-100 mt-1">
+                        Calculando...
+                    </span>
+                </div>
+
+                <!-- Barra de porcentaje interactiva -->
+                <div class="lg:col-span-2 space-y-2">
+                    <div class="flex justify-between text-xs font-extrabold">
+                        <span id="porcentaje-meta-texto" class="text-sky-600 transition-colors duration-300">0% de la Meta</span>
+                        <span class="text-slate-400">Meta: 90 alumnos por docente</span>
+                    </div>
+                    <!-- Contenedor de la barra -->
+                    <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden shadow-inner relative">
+                        <div id="meta-progress-bar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Replicador de Tarjetas (Diseño de Alta Fidelidad de 4 Columnas) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- TARJETA 1: GENERACIÓN (Tema Rosa/Rojo) -->
+            <div class="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between min-h-[340px] transition-all duration-300 hover:shadow-md">
+                <div class="p-6 flex-grow">
+                    <!-- Insignia / Badge Superior (Dinámica) -->
+                    <span id="c1-badge-display" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-extrabold bg-red-50 text-red-700 uppercase tracking-wider mb-4">
+                        GENERACIÓN #27
+                    </span>
+                    <!-- Título del Curso (Dinámico) -->
+                    <h2 id="c1-curso-display" class="text-xl font-black text-slate-800 tracking-tight mb-1">
+                        Curso: B1 a B2
+                    </h2>
+                    <!-- Módulo -->
+                    <p id="c1-modulo-display" class="text-slate-400 font-bold text-sm mb-6">Módulo #4</p>
+
+                    <!-- Lista de Datos Clave -->
+                    <div class="space-y-4">
+                        <!-- Fila: Calendario -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Calendario</span>
+                            </div>
+                            <span id="c1-semana-display" class="text-slate-800 font-extrabold text-base">Semana 3</span>
+                        </div>
+                        <!-- Fila: Nivel Asignado -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Nivel Asignado</span>
+                            </div>
+                            <span class="text-slate-800 font-extrabold">B1 a B2 (Intermedio)</span>
+                        </div>
+                        <!-- Fila: Profesor Asignado -->
+                        <div class="flex items-center justify-between text-sm pt-2 border-t border-dashed border-slate-100">
+                            <span class="text-slate-400 font-medium">Teacher</span>
+                            <span id="c1-teacher-display" class="text-slate-700 font-semibold">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer de la Tarjeta (Total Alumnos) -->
+                <div class="bg-[#f3f7fc] px-6 py-4 flex items-center justify-between border-t border-slate-100">
+                    <span class="text-slate-500 font-semibold text-sm">Total Alumnos:</span>
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white text-slate-800 font-bold text-sm shadow-sm border border-slate-100">
+                        <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span id="c1-alumnos-display">0 Alumnos</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- TARJETA 2: ADV. SPOKEN COURSE (Tema Ámbar/Ocre) -->
+            <div class="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between min-h-[340px] transition-all duration-300 hover:shadow-md">
+                <div class="p-6 flex-grow">
+                    <!-- Insignia / Badge Superior (Dinámica) -->
+                    <span id="c2-badge-display" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-extrabold bg-amber-50 text-amber-700 uppercase tracking-wider mb-4">
+                        ADV. SPOKEN COURSE
+                    </span>
+                    <!-- Título del Curso (Dinámico) -->
+                    <h2 id="c2-curso-display" class="text-xl font-black text-slate-800 tracking-tight mb-1">
+                        Curso Avanzado
+                    </h2>
+                    <!-- Módulo -->
+                    <p id="c2-modulo-display" class="text-slate-400 font-bold text-sm mb-6">Módulo #2</p>
+
+                    <!-- Lista de Datos Clave -->
+                    <div class="space-y-4">
+                        <!-- Fila: Calendario -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Calendario</span>
+                            </div>
+                            <span id="c2-semana-display" class="text-slate-800 font-extrabold text-base">Semana 4</span>
+                        </div>
+                        <!-- Relleno para alineación de altura -->
+                        <div class="flex items-center justify-between text-sm invisible">
+                            <span class="text-slate-500 font-medium">Espacio</span>
+                            <span class="text-slate-850 font-extrabold">Alineado</span>
+                        </div>
+                        <!-- Fila: Profesor Asignado -->
+                        <div class="flex items-center justify-between text-sm pt-2 border-t border-dashed border-slate-100">
+                            <span class="text-slate-400 font-medium">Teacher</span>
+                            <span id="c2-teacher-display" class="text-slate-700 font-semibold">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer de la Tarjeta (Total Alumnos) -->
+                <div class="bg-[#f3f7fc] px-6 py-4 flex items-center justify-between border-t border-slate-100">
+                    <span class="text-slate-500 font-semibold text-sm">Total Alumnos:</span>
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white text-slate-800 font-bold text-sm shadow-sm border border-slate-100">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span id="c2-alumnos-display">0 Alumnos</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- TARJETA 3: SPEAKING RECOVERY (Tema Verde/Menta) -->
+            <div class="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between min-h-[340px] transition-all duration-300 hover:shadow-md">
+                <div class="p-6 flex-grow">
+                    <!-- Insignia / Badge Superior (Dinámica) -->
+                    <span id="c3-badge-display" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-wider mb-4">
+                        SPEAKING RECOVERY
+                    </span>
+                    <!-- Título del Curso (Dinámico) -->
+                    <h2 id="c3-curso-display" class="text-xl font-black text-slate-800 tracking-tight mb-1">
+                        Curso Recuperación
+                    </h2>
+                    <!-- Módulo -->
+                    <p id="c3-modulo-display" class="text-slate-400 font-bold text-sm mb-6">Módulo #2</p>
+
+                    <!-- Lista de Datos Clave -->
+                    <div class="space-y-4">
+                        <!-- Fila: Calendario -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Calendario</span>
+                            </div>
+                            <span id="c3-semana-display" class="text-slate-800 font-extrabold text-base">Semana 4</span>
+                        </div>
+                        <!-- Relleno para alineación de altura -->
+                        <div class="flex items-center justify-between text-sm invisible">
+                            <span class="text-slate-500 font-medium">Espacio</span>
+                            <span class="text-slate-850 font-extrabold">Alineado</span>
+                        </div>
+                        <!-- Fila: Profesor Asignado -->
+                        <div class="flex items-center justify-between text-sm pt-2 border-t border-dashed border-slate-100">
+                            <span class="text-slate-400 font-medium">Teacher</span>
+                            <span id="c3-teacher-display" class="text-slate-700 font-semibold">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer de la Tarjeta (Total Alumnos) -->
+                <div class="bg-[#f3f7fc] px-6 py-4 flex items-center justify-between border-t border-slate-100">
+                    <span class="text-slate-500 font-semibold text-sm">Total Alumnos:</span>
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white text-slate-800 font-bold text-sm shadow-sm border border-slate-100">
+                        <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span id="c3-alumnos-display">0 Alumnos</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- TARJETA 4: GRUPO DUPLICADO (Tema Púrpura/Violeta) -->
+            <div class="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between min-h-[340px] transition-all duration-300 hover:shadow-md">
+                <div class="p-6 flex-grow">
+                    <!-- Insignia / Badge Superior (Dinámica) -->
+                    <span id="c4-badge-display" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-extrabold bg-purple-50 text-purple-700 uppercase tracking-wider mb-4">
+                        GENERACIÓN #28
+                    </span>
+                    <!-- Título del Curso (Dinámico) -->
+                    <h2 id="c4-curso-display" class="text-xl font-black text-slate-800 tracking-tight mb-1">
+                        Curso: A2 to B1
+                    </h2>
+                    <!-- Módulo -->
+                    <p id="c4-modulo-display" class="text-slate-400 font-bold text-sm mb-6">Módulo #4</p>
+
+                    <!-- Lista de Datos Clave -->
+                    <div class="space-y-4">
+                        <!-- Fila: Calendario -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Calendario</span>
+                            </div>
+                            <span id="c4-semana-display" class="text-slate-800 font-extrabold text-base">Semana 2</span>
+                        </div>
+                        <!-- Fila: Nivel Asignado -->
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="text-slate-500 font-medium">Nivel Asignado</span>
+                            </div>
+                            <span class="text-slate-800 font-extrabold">A2 to B1 (Pre-Intermedio)</span>
+                        </div>
+                        <!-- Fila: Profesor Asignado -->
+                        <div class="flex items-center justify-between text-sm pt-2 border-t border-dashed border-slate-100">
+                            <span class="text-slate-400 font-medium">Teacher</span>
+                            <span id="c4-teacher-display" class="text-slate-700 font-semibold">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer de la Tarjeta (Total Alumnos) -->
+                <div class="bg-[#f3f7fc] px-6 py-4 flex items-center justify-between border-t border-slate-100">
+                    <span class="text-slate-500 font-semibold text-sm">Total Alumnos:</span>
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white text-slate-800 font-bold text-sm shadow-sm border border-slate-100">
+                        <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span id="c4-alumnos-display">0 Alumnos</span>
+                    </span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Consola del Simulador (Control Total Interactiva) -->
+        <div class="bg-slate-900 text-slate-100 rounded-3xl p-6 shadow-xl border border-slate-800">
+            <h3 class="text-sm font-black uppercase tracking-widest text-sky-400 mb-6 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                Consola de Simulación Activa
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Controles Tarjeta 1 -->
+                <div class="space-y-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">Grupo 1 (Rosa/Rojo)</h4>
+                    
+                    <!-- Dropdown Dinámico: Nombre del Grupo (Generaciones 1 - 200) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c1-nombre-select">Nombre del Grupo:</label>
+                        <select id="c1-nombre-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente -->
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Curso / Nivel -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c1-curso-select">Curso / Nivel:</label>
+                        <select id="c1-curso-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="Curso: B1 a B2">Curso: B1 a B2</option>
+                            <option value="Curso: A2 to B1">Curso: A2 to B1</option>
+                            <option value="Curso: A0 to A1">Curso: A0 to A1</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Módulo -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c1-modulo-select">Módulo:</label>
+                        <select id="c1-modulo-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Módulo #1</option>
+                            <option value="2">Módulo #2</option>
+                            <option value="3">Módulo #3</option>
+                            <option value="4">Módulo #4</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c1-semana-select">Calendario (Semana):</label>
+                        <select id="c1-semana-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Semana 1</option>
+                            <option value="2">Semana 2</option>
+                            <option value="3">Semana 3</option>
+                            <option value="4">Semana 4</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c1-alumnos-select">Cantidad de Alumnos:</label>
+                        <select id="c1-alumnos-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente (0-100) -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Controles Tarjeta 2 -->
+                <div class="space-y-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">Grupo 2 (Ámbar)</h4>
+                    
+                    <!-- Dropdown: Nombre del Grupo (Con opción N/A) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c2-nombre-select">Nombre del Grupo:</label>
+                        <select id="c2-nombre-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="ADV. SPOKEN COURSE">Adv. Spoken Course</option>
+                            <option value="BUSINESS ENGLISH">Business English</option>
+                            <option value="INTENSIVE SPEAKING">Intensive Speaking</option>
+                            <option value="N/A">N/A</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Curso / Nivel (Con opción N/A) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c2-curso-select">Curso / Nivel:</label>
+                        <select id="c2-curso-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="Curso Avanzado">Curso Avanzado</option>
+                            <option value="Curso Intermedio">Curso Intermedio</option>
+                            <option value="Curso de Negocios">Curso de Negocios</option>
+                            <option value="N/A">N/A</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Módulo -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c2-modulo-select">Módulo:</label>
+                        <select id="c2-modulo-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Módulo #1</option>
+                            <option value="2">Módulo #2</option>
+                            <option value="3">Módulo #3</option>
+                            <option value="4">Módulo #4</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c2-semana-select">Calendario (Semana):</label>
+                        <select id="c2-semana-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Semana 1</option>
+                            <option value="2">Semana 2</option>
+                            <option value="3">Semana 3</option>
+                            <option value="4">Semana 4</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c2-alumnos-select">Cantidad de Alumnos:</label>
+                        <select id="c2-alumnos-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente (0-100) -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Controles Tarjeta 3 -->
+                <div class="space-y-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">Grupo 3 (Verde)</h4>
+                    
+                    <!-- Dropdown: Nombre del Grupo (Con opción N/A) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c3-nombre-select">Nombre del Grupo:</label>
+                        <select id="c3-nombre-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="SPEAKING RECOVERY">Speaking Recovery</option>
+                            <option value="GRAMMAR RECOVERY">Grammar Recovery</option>
+                            <option value="FLUENCY BOOSTER">Fluency Booster</option>
+                            <option value="N/A">N/A</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Curso / Nivel (Con opción N/A) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c3-curso-select">Curso / Nivel:</label>
+                        <select id="c3-curso-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="Curso Recuperación">Curso Recuperación</option>
+                            <option value="Taller de Fluidez">Taller de Fluidez</option>
+                            <option value="Gramática Aplicada">Gramática Aplicada</option>
+                            <option value="N/A">N/A</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Módulo -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c3-modulo-select">Módulo:</label>
+                        <select id="c3-modulo-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Módulo #1</option>
+                            <option value="2">Módulo #2</option>
+                            <option value="3">Módulo #3</option>
+                            <option value="4">Módulo #4</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c3-semana-select">Calendario (Semana):</label>
+                        <select id="c3-semana-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Semana 1</option>
+                            <option value="2">Semana 2</option>
+                            <option value="3">Semana 3</option>
+                            <option value="4">Semana 4</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c3-alumnos-select">Cantidad de Alumnos:</label>
+                        <select id="c3-alumnos-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente (0-100) -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Controles Tarjeta 4 (Duplicado del Grupo 1) -->
+                <div class="space-y-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">Grupo 4 (Púrpura)</h4>
+                    
+                    <!-- Dropdown Dinámico: Nombre del Grupo (Generaciones 1 - 200) -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c4-nombre-select">Nombre del Grupo:</label>
+                        <select id="c4-nombre-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente -->
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Curso / Nivel -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c4-curso-select">Curso / Nivel:</label>
+                        <select id="c4-curso-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="Curso: B1 a B2">Curso: B1 a B2</option>
+                            <option value="Curso: A2 to B1">Curso: A2 to B1</option>
+                            <option value="Curso: A0 to A1">Curso: A0 to A1</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown: Módulo -->
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c4-modulo-select">Módulo:</label>
+                        <select id="c4-modulo-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Módulo #1</option>
+                            <option value="2">Módulo #2</option>
+                            <option value="3">Módulo #3</option>
+                            <option value="4">Módulo #4</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c4-semana-select">Calendario (Semana):</label>
+                        <select id="c4-semana-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <option value="1">Semana 1</option>
+                            <option value="2">Semana 2</option>
+                            <option value="3">Semana 3</option>
+                            <option value="4">Semana 4</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1" for="c4-alumnos-select">Cantidad de Alumnos:</label>
+                        <select id="c4-alumnos-select" onchange="actualizarValores()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                            <!-- Opciones cargadas dinámicamente (0-100) -->
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification (Mensaje Flotante) -->
+    <div id="toast-notificacion" class="fixed bottom-4 right-4 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-3">
+        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+            <p class="font-bold text-sm">¡Imagen del reporte descargada!</p>
+            <p class="text-xs text-slate-300 mt-0.5">Abriendo tu correo... Por favor, adjunta el archivo descargado.</p>
+        </div>
+    </div>
+
+    <!-- Script de Lógica Interactiva Avanzada -->
+    <script>
+        // Estructura de datos para almacenar el estado independiente de cada profesor
+        const datosDocentes = {
+            "Alejandro García": {
+                c1_nombre: "GENERACIÓN #27", c1_curso: "Curso: B1 a B2", c1_modulo: "4", c1_semana: "3", c1_alumnos: 40,
+                c2_nombre: "ADV. SPOKEN COURSE", c2_curso: "Curso Avanzado", c2_modulo: "2", c2_semana: "4", c2_alumnos: 11,
+                c3_nombre: "SPEAKING RECOVERY", c3_curso: "Curso Recuperación", c3_modulo: "2", c3_semana: "4", c3_alumnos: 8,
+                c4_nombre: "GENERACIÓN #28", c4_curso: "Curso: A2 to B1", c4_modulo: "4", c4_semana: "2", c4_alumnos: 35
+            },
+            "Christian Muller": {
+                c1_nombre: "GENERACIÓN #29", c1_curso: "Curso: A0 to A1", c1_modulo: "1", c1_semana: "1", c1_alumnos: 38,
+                c2_nombre: "BUSINESS ENGLISH", c2_curso: "Curso de Negocios", c2_modulo: "2", c2_semana: "2", c2_alumnos: 22,
+                c3_nombre: "FLUENCY BOOSTER", c3_curso: "Taller de Fluidez", c3_modulo: "3", c3_semana: "3", c3_alumnos: 15,
+                c4_nombre: "GENERACIÓN #30", c4_curso: "Curso: A2 to B1", c4_modulo: "1", c4_semana: "1", c4_alumnos: 10
+            }
+        };
+
+        let docenteActual = "Alejandro García";
+
+        // Función para poblar dinámicamente los selectores del Grupo 1 y Grupo 4 con generaciones de la 1 a la 200
+        function inicializarSelectorGeneraciones() {
+            const select1 = document.getElementById('c1-nombre-select');
+            const select4 = document.getElementById('c4-nombre-select');
+            
+            // Poblar select del Grupo 1
+            if (select1) {
+                select1.innerHTML = '';
+                for (let i = 1; i <= 200; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = `GENERACIÓN #${i}`;
+                    opt.innerText = `Generación #${i}`;
+                    select1.appendChild(opt);
+                }
+                const optExtra = document.createElement('option');
+                optExtra.value = "GRUPO NUEVO INICIAL";
+                optExtra.innerText = "Grupo Nuevo Inicial";
+                select1.appendChild(optExtra);
+            }
+
+            // Poblar select del Grupo 4
+            if (select4) {
+                select4.innerHTML = '';
+                for (let i = 1; i <= 200; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = `GENERACIÓN #${i}`;
+                    opt.innerText = `Generación #${i}`;
+                    select4.appendChild(opt);
+                }
+                const optExtra = document.createElement('option');
+                optExtra.value = "GRUPO NUEVO INICIAL";
+                optExtra.innerText = "Grupo Nuevo Inicial";
+                select4.appendChild(optExtra);
+            }
+        }
+
+        // Función para poblar de forma dinámica el menú desplegable del total de alumnos de 0 a 100
+        function inicializarSelectoresAlumnos() {
+            const selectores = ['c1-alumnos-select', 'c2-alumnos-select', 'c3-alumnos-select', 'c4-alumnos-select'];
+            selectores.forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    select.innerHTML = '';
+                    for (let i = 0; i <= 100; i++) {
+                        const opt = document.createElement('option');
+                        opt.value = i;
+                        opt.innerText = `${i} Alumnos`;
+                        select.appendChild(opt);
+                    }
+                }
+            });
+        }
+
+        // Función para cargar los datos del profesor activo en la consola de simulación
+        function actualizarProfesorGlobal() {
+            docenteActual = document.getElementById('global-teacher-select').value;
+            const data = datosDocentes[docenteActual];
+
+            // Cargar datos del docente en el formulario de simulación
+            document.getElementById('c1-nombre-select').value = data.c1_nombre;
+            document.getElementById('c1-curso-select').value = data.c1_curso;
+            document.getElementById('c1-modulo-select').value = data.c1_modulo;
+            document.getElementById('c1-semana-select').value = data.c1_semana;
+            document.getElementById('c1-alumnos-select').value = data.c1_alumnos;
+
+            document.getElementById('c2-nombre-select').value = data.c2_nombre;
+            document.getElementById('c2-curso-select').value = data.c2_curso;
+            document.getElementById('c2-modulo-select').value = data.c2_modulo;
+            document.getElementById('c2-semana-select').value = data.c2_semana;
+            document.getElementById('c2-alumnos-select').value = data.c2_alumnos;
+
+            document.getElementById('c3-nombre-select').value = data.c3_nombre;
+            document.getElementById('c3-curso-select').value = data.c3_curso;
+            document.getElementById('c3-modulo-select').value = data.c3_modulo;
+            document.getElementById('c3-semana-select').value = data.c3_semana;
+            document.getElementById('c3-alumnos-select').value = data.c3_alumnos;
+
+            document.getElementById('c4-nombre-select').value = data.c4_nombre;
+            document.getElementById('c4-curso-select').value = data.c4_curso;
+            document.getElementById('c4-modulo-select').value = data.c4_modulo;
+            document.getElementById('c4-semana-select').value = data.c4_semana;
+            document.getElementById('c4-alumnos-select').value = data.c4_alumnos;
+
+            // Renderizar las tarjetas
+            actualizarValores();
+        }
+
+        // Función que lee los valores de la consola, los almacena y refresca los indicadores visuales
+        function actualizarValores() {
+            // Leer valores actuales de la consola
+            const c1Nombre = document.getElementById('c1-nombre-select').value;
+            const c1Curso = document.getElementById('c1-curso-select').value;
+            const c1Modulo = document.getElementById('c1-modulo-select').value;
+            const c1Semana = document.getElementById('c1-semana-select').value;
+            const c1Alumnos = parseInt(document.getElementById('c1-alumnos-select').value, 10) || 0;
+
+            const c2Nombre = document.getElementById('c2-nombre-select').value;
+            const c2Curso = document.getElementById('c2-curso-select').value;
+            const c2Modulo = document.getElementById('c2-modulo-select').value;
+            const c2Semana = document.getElementById('c2-semana-select').value;
+            const c2Alumnos = parseInt(document.getElementById('c2-alumnos-select').value, 10) || 0;
+
+            const c3Nombre = document.getElementById('c3-nombre-select').value;
+            const c3Curso = document.getElementById('c3-curso-select').value;
+            const c3Modulo = document.getElementById('c3-modulo-select').value;
+            const c3Semana = document.getElementById('c3-semana-select').value;
+            const c3Alumnos = parseInt(document.getElementById('c3-alumnos-select').value, 10) || 0;
+
+            const c4Nombre = document.getElementById('c4-nombre-select').value;
+            const c4Curso = document.getElementById('c4-curso-select').value;
+            const c4Modulo = document.getElementById('c4-modulo-select').value;
+            const c4Semana = document.getElementById('c4-semana-select').value;
+            const c4Alumnos = parseInt(document.getElementById('c4-alumnos-select').value, 10) || 0;
+
+            // Guardar cambios en el almacenamiento local en memoria del docente activo
+            datosDocentes[docenteActual] = {
+                c1_nombre: c1Nombre, c1_curso: c1Curso, c1_modulo: c1Modulo, c1_semana: c1Semana, c1_alumnos: c1Alumnos,
+                c2_nombre: c2Nombre, c2_curso: c2Curso, c2_modulo: c2Modulo, c2_semana: c2Semana, c2_alumnos: c2Alumnos,
+                c3_nombre: c3Nombre, c3_curso: c3Curso, c3_modulo: c3Modulo, c3_semana: c3Semana, c3_alumnos: c3Alumnos,
+                c4_nombre: c4Nombre, c4_curso: c4Curso, c4_modulo: c4Modulo, c4_semana: c4Semana, c4_alumnos: c4Alumnos
+            };
+
+            // Vincular y renderizar en la Tarjeta 1
+            document.getElementById('c1-badge-display').innerText = c1Nombre;
+            document.getElementById('c1-curso-display').innerText = c1Curso;
+            document.getElementById('c1-modulo-display').innerText = `Módulo #${c1Modulo}`;
+            document.getElementById('c1-semana-display').innerText = `Semana ${c1Semana}`;
+            document.getElementById('c1-alumnos-display').innerText = `${c1Alumnos} Alumnos`;
+            document.getElementById('c1-teacher-display').innerText = docenteActual;
+
+            // Vincular y renderizar en la Tarjeta 2
+            document.getElementById('c2-badge-display').innerText = c2Nombre;
+            document.getElementById('c2-curso-display').innerText = c2Curso;
+            document.getElementById('c2-modulo-display').innerText = `Módulo #${c2Modulo}`;
+            document.getElementById('c2-semana-display').innerText = `Semana ${c2Semana}`;
+            document.getElementById('c2-alumnos-display').innerText = `${c2Alumnos} Alumnos`;
+            document.getElementById('c2-teacher-display').innerText = docenteActual;
+
+            // Vincular y renderizar en la Tarjeta 3
+            document.getElementById('c3-badge-display').innerText = c3Nombre;
+            document.getElementById('c3-curso-display').innerText = c3Curso;
+            document.getElementById('c3-modulo-display').innerText = `Módulo #${c3Modulo}`;
+            document.getElementById('c3-semana-display').innerText = `Semana ${c3Semana}`;
+            document.getElementById('c3-alumnos-display').innerText = `${c3Alumnos} Alumnos`;
+            document.getElementById('c3-teacher-display').innerText = docenteActual;
+
+            // Vincular y renderizar en la Tarjeta 4
+            document.getElementById('c4-badge-display').innerText = c4Nombre;
+            document.getElementById('c4-curso-display').innerText = c4Curso;
+            document.getElementById('c4-modulo-display').innerText = `Módulo #${c4Modulo}`;
+            document.getElementById('c4-semana-display').innerText = `Semana ${c4Semana}`;
+            document.getElementById('c4-alumnos-display').innerText = `${c4Alumnos} Alumnos`;
+            document.getElementById('c4-teacher-display').innerText = docenteActual;
+
+            // Calcular progreso global e indicador de metas
+            actualizarMetaProgreso(c1Alumnos + c2Alumnos + c3Alumnos + c4Alumnos);
+        }
+
+        // Función para calcular y renderizar la barra de progreso y meta del docente activo
+        function actualizarMetaProgreso(totalAlumnos) {
+            const meta = 90;
+            const porcentaje = Math.round((totalAlumnos / meta) * 100);
+            
+            // Elementos del DOM a actualizar
+            const elTotalGlobal = document.getElementById('total-alumnos-global');
+            const elPorcentajeTexto = document.getElementById('porcentaje-meta-texto');
+            const elProgressBar = document.getElementById('meta-progress-bar');
+            const elMetaBadge = document.getElementById('meta-badge');
+
+            // Renderizado numérico y porcentual
+            elTotalGlobal.innerText = totalAlumnos;
+            elPorcentajeTexto.innerText = `${porcentaje}% de la meta`;
+
+            // Control de longitud visual de la barra (máximo 100% de ancho)
+            const porcentajeVisual = Math.min(porcentaje, 100);
+            elProgressBar.style.width = `${porcentajeVisual}%`;
+
+            // Lógica de colores del KPI de acuerdo al cumplimiento de meta
+            if (porcentaje >= 100) {
+                // Meta cumplida (Verde Esmeralda)
+                elProgressBar.className = "bg-gradient-to-r from-emerald-500 to-teal-600 h-full rounded-full transition-all duration-500 ease-out shadow-inner";
+                elPorcentajeTexto.className = "text-emerald-600 transition-colors duration-300";
+                elMetaBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 mt-1";
+                elMetaBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> Meta Alcanzada 🎉`;
+            } else if (porcentaje >= 75) {
+                // Progreso excelente cercano a meta (Ámbar)
+                elProgressBar.className = "bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500 ease-out shadow-inner";
+                elPorcentajeTexto.className = "text-amber-600 transition-colors duration-300";
+                elMetaBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-100 mt-1";
+                elMetaBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Progreso Cercano`;
+            } else {
+                // Progreso normal (Azul/Índigo)
+                elProgressBar.className = "bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out shadow-inner";
+                elPorcentajeTexto.className = "text-sky-600 transition-colors duration-300";
+                elMetaBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-100 mt-1";
+                elMetaBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> En Progreso`;
+            }
+        }
+
+        // Ejecutar inicializaciones y configuraciones al cargar la página
+        window.onload = function() {
+            inicializarSelectorGeneraciones();
+            inicializarSelectoresAlumnos();
+            actualizarProfesorGlobal();
+        };
+
+        // Función para mostrar la notificación flotante (Toast)
+        function mostrarToast() {
+            const toast = document.getElementById('toast-notificacion');
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 6000);
+        }
+
+        // Función para exportar la pantalla actual a imagen y preparar el correo
+        function exportarYEnviar() {
+            const dashboard = document.getElementById('dashboard-container');
+            const botonAnterior = document.activeElement; // Para evitar efectos raros de foco
+            
+            // Opcional: Puedes agregar una clase temporal al body si necesitas ocultar la barra de scroll en la imagen
+            
+            html2canvas(dashboard, {
+                scale: 2, // Aumenta la resolución de la imagen descargada
+                backgroundColor: '#f1f5f9', // Asegura el color de fondo correcto (bg-slate-100)
+                useCORS: true
+            }).then(canvas => {
+                // 1. Descargar la imagen
+                const imgData = canvas.toDataURL('image/png');
+                const enlaceDeDescarga = document.createElement('a');
+                const nombreArchivo = `Reporte_${docenteActual.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.png`;
+                
+                enlaceDeDescarga.download = nombreArchivo;
+                enlaceDeDescarga.href = imgData;
+                enlaceDeDescarga.click();
+
+                // 2. Mostrar el mensaje flotante al usuario
+                mostrarToast();
+
+                // 3. Abrir el cliente de correo tras un breve retraso (para que dé tiempo a iniciar la descarga)
+                setTimeout(() => {
+                    const correoDestino = 'jaime.garcia@fundacioncaprile.org';
+                    const asunto = encodeURIComponent(`Reporte de Control de Progreso - ${docenteActual}`);
+                    const cuerpo = encodeURIComponent(
+`Hola Jaime,
+
+Adjunto a este correo el reporte de progreso de los cursos para el profesor ${docenteActual}.
+
+[ ! ] RECUERDA ADJUNTAR EL ARCHIVO "${nombreArchivo}" QUE SE ACABA DE DESCARGAR.
+
+Saludos cordiales.`
+                    );
+                    
+                    window.location.href = `mailto:${correoDestino}?subject=${asunto}&body=${cuerpo}`;
+                }, 1500); // 1.5 segundos de espera
+            }).catch(error => {
+                console.error("Error al generar la imagen del dashboard:", error);
+                // Si la exportación falla, intentamos enviar el correo de todas formas
+                window.location.href = `mailto:jaime.garcia@fundacioncaprile.org?subject=Fallo en Exportación de Reporte`;
+            });
+        }
+    </script>
+</body>
+</html>
